@@ -53,7 +53,7 @@ serve(async (req) => {
 
     // Call Azure Computer Vision API with dense captions and OCR
     const azureResponse = await fetch(
-      `${AZURE_VISION_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=denseCaptions,read&gender-neutral-caption=true`,
+      `${AZURE_VISION_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2024-02-01&features=denseCaptions,read&gender-neutral-caption=true`,
       {
         method: 'POST',
         headers: {
