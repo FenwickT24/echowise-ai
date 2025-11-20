@@ -2,7 +2,7 @@ import os
 import requests
 
 # Set your API key somewhere safe (env variable recommended)
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = "sk-49rTZeGWH5AtijQc1bA_lv942TfbfY8if0M7SSJd8GT3BlbkFJGWJKYj72TXVAgk3P6WJmO5fQ1gRi2KLa2wmEsLijUA"
 
 def tts(text: str, output_file: str = "tts.mp3"):
     api_key = os.getenv("OPENAI_API_KEY")
@@ -35,4 +35,5 @@ def tts(text: str, output_file: str = "tts.mp3"):
         except ValueError:
             print("Error:", resp.status_code, resp.text)
         resp.raise_for_status()
+
 
