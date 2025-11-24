@@ -31,23 +31,29 @@ const TextInput = ({ language, userId, onProcessed }: TextInputProps) => {
 
     try {
       // Process text with AI
-      const { data, error } = await supabase.functions.invoke('process-text', {
+      const { data: processData, error: processError } = await supabase.functions.invoke('process-text', {
         body: { text, language },
       });
 
-      if (error) throw error;
+      if (processError) throw processError;
 
-      // Convert to speech
-      const utterance = new SpeechSynthesisUtterance(data.processedText);
-      utterance.lang = language;
-      window.speechSynthesis.speak(utterance);
+      // Generate speech with OpenAI TTS
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: processData.processedText, voice: 'alloy' },
+      });
+
+      if (ttsError) throw ttsError;
+
+      // Play the audio
+      const audio = new Audio(`data:audio/mp3;base64,${ttsData.audioContent}`);
+      audio.play();
 
       // Save to history
       await supabase.from('history').insert({
         user_id: userId,
         input_type: 'text',
         input_content: text,
-        output_text: data.processedText,
+        output_text: processData.processedText,
         language,
       });
 
