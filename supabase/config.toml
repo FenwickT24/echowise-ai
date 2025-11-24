@@ -1,2 +1,10 @@
 project_id = "hruykkurtskodirgijgv"
-api_key= "sk-LcM2ztszQekCPpW4nGoT2zF-KK_hophdBdDlL0gEtGT3BlbkFJtgSkNx2U6MxoOP532ueDSc-Jx7gm4SNiuNlMM38BMA"
+
+[functions.process-image]
+verify_jwt = false
+
+[functions.process-text]
+verify_jwt = false
+
+[functions.text-to-speech]
+verify_jwt = false
