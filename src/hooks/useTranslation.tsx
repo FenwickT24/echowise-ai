@@ -4,20 +4,25 @@ import { pipeline } from '@huggingface/transformers';
 export const useTranslation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isModelReady, setIsModelReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const translatorRef = useRef<any>(null);
 
   useEffect(() => {
     const loadModel = async () => {
       try {
         setIsLoading(true);
+        console.log('Starting to load translation model...');
         // Load the custom model from the trained_en_nl_model directory
         translatorRef.current = await pipeline(
           'translation',
           '/trained_en_nl_model/'
         );
+        console.log('Translation model loaded successfully!');
         setIsModelReady(true);
       } catch (error) {
         console.error('Error loading translation model:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load model');
+        setIsModelReady(false);
       } finally {
         setIsLoading(false);
       }
@@ -40,5 +45,5 @@ export const useTranslation = () => {
     }
   };
 
-  return { translate, isLoading, isModelReady };
+  return { translate, isLoading, isModelReady, error };
 };
