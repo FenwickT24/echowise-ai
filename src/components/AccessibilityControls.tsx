@@ -2,33 +2,19 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface AccessibilityControlsProps {
-  onLanguageChange: (language: string) => void;
-  language: string;
+  onTranslateChange: (translate: boolean) => void;
+  translate: boolean;
 }
 
-const AccessibilityControls = ({ onLanguageChange, language }: AccessibilityControlsProps) => {
+const AccessibilityControls = ({ onTranslateChange, translate }: AccessibilityControlsProps) => {
   const [scale, setScale] = useState([100]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${scale[0]}%`;
   }, [scale]);
-
-  const languages = [
-    { value: "en", label: "English" },
-    { value: "es", label: "Spanish" },
-    { value: "fr", label: "French" },
-    { value: "de", label: "German" },
-    { value: "it", label: "Italian" },
-    { value: "pt", label: "Portuguese" },
-    { value: "nl", label: "Dutch" },
-    { value: "pl", label: "Polish" },
-    { value: "ru", label: "Russian" },
-    { value: "ja", label: "Japanese" },
-    { value: "zh", label: "Chinese" },
-  ];
 
   return (
     <Card>
@@ -39,22 +25,15 @@ const AccessibilityControls = ({ onLanguageChange, language }: AccessibilityCont
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-3">
-          <Label htmlFor="language" className="text-lg">
-            Audio Output Language
+        <div className="flex items-center justify-between">
+          <Label htmlFor="translate" className="text-lg">
+            Translate to Dutch
           </Label>
-          <Select value={language} onValueChange={onLanguageChange}>
-            <SelectTrigger id="language" className="text-lg h-12">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang.value} value={lang.value} className="text-lg">
-                  {lang.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Switch
+            id="translate"
+            checked={translate}
+            onCheckedChange={onTranslateChange}
+          />
         </div>
 
         <div className="space-y-3">
