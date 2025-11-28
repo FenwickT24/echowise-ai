@@ -17,7 +17,7 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { translate: translateText, isModelReady } = useTranslation();
+  const { translate: translateText, isModelReady, error: modelError } = useTranslation();
 
   const handleProcess = async () => {
     if (!text.trim()) {
@@ -36,7 +36,14 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
 
       // Translate if enabled
       if (translate) {
-        if (!isModelReady) {
+        if (modelError) {
+          toast({
+            title: "Translation unavailable",
+            description: `Model failed to load: ${modelError}. Proceeding without translation.`,
+            variant: "destructive",
+          });
+          // Continue without translation
+        } else if (!isModelReady) {
           toast({
             title: "Model loading",
             description: "Translation model is still loading, please wait...",
@@ -44,8 +51,9 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
           });
           setLoading(false);
           return;
+        } else {
+          processedText = await translateText(text);
         }
-        processedText = await translateText(text);
       }
 
       // Generate speech with OpenAI TTS
