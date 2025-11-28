@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Volume2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useTranslation } from "@/hooks/useTranslation";
 
 interface TextInputProps {
   translate: boolean;
@@ -17,7 +16,6 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { translate: translateText, isModelReady, error: modelError } = useTranslation();
 
   const handleProcess = async () => {
     if (!text.trim()) {
@@ -36,23 +34,18 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
 
       // Translate if enabled
       if (translate) {
-        if (modelError) {
+        const { data: translateData, error: translateError } = await supabase.functions.invoke('translate-text', {
+          body: { text },
+        });
+
+        if (translateError) {
+          console.error('Translation error:', translateError);
           toast({
-            title: "Translation unavailable",
-            description: `Model failed to load: ${modelError}. Proceeding without translation.`,
-            variant: "destructive",
+            title: "Translation failed",
+            description: "Proceeding with original text",
           });
-          // Continue without translation
-        } else if (!isModelReady) {
-          toast({
-            title: "Model loading",
-            description: "Translation model is still loading, please wait...",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
         } else {
-          processedText = await translateText(text);
+          processedText = translateData.translatedText;
         }
       }
 
