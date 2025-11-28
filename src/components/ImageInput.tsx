@@ -51,23 +51,48 @@ const ImageInput = ({ translate, userId, onProcessed }: ImageInputProps) => {
 
     try {
       // Process image with AI
-      const { data, error } = await supabase.functions.invoke('process-image', {
+      const { data: imageData, error: imageError } = await supabase.functions.invoke('process-image', {
         body: { imageData: imagePreview, language: translate ? 'nl' : 'en' },
       });
 
-      if (error) throw error;
+      if (imageError) throw imageError;
 
-      // Convert description to speech
-      const utterance = new SpeechSynthesisUtterance(data.description);
-      utterance.lang = translate ? 'nl' : 'en';
-      window.speechSynthesis.speak(utterance);
+      let description = imageData.description;
+
+      // Translate if needed
+      if (translate) {
+        const { data: translateData, error: translateError } = await supabase.functions.invoke('translate-text', {
+          body: { text: description },
+        });
+
+        if (translateError) {
+          console.error('Translation error:', translateError);
+          toast({
+            title: "Translation failed",
+            description: "Proceeding with original text",
+          });
+        } else {
+          description = translateData.translatedText;
+        }
+      }
+
+      // Generate speech with OpenAI TTS
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: description, voice: 'alloy' },
+      });
+
+      if (ttsError) throw ttsError;
+
+      // Play the audio
+      const audio = new Audio(`data:audio/mp3;base64,${ttsData.audioContent}`);
+      audio.play();
 
       // Save to history
       await supabase.from('history').insert({
         user_id: userId,
         input_type: 'image',
         input_content: imagePreview,
-        output_text: data.description,
+        output_text: description,
         language: translate ? 'nl' : 'en',
       });
 
