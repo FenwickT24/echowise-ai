@@ -6,12 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ImageInputProps {
-  language: string;
+  translate: boolean;
   userId: string;
   onProcessed: () => void;
 }
 
-const ImageInput = ({ language, userId, onProcessed }: ImageInputProps) => {
+const ImageInput = ({ translate, userId, onProcessed }: ImageInputProps) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,14 +52,14 @@ const ImageInput = ({ language, userId, onProcessed }: ImageInputProps) => {
     try {
       // Process image with AI
       const { data, error } = await supabase.functions.invoke('process-image', {
-        body: { imageData: imagePreview, language },
+        body: { imageData: imagePreview, language: translate ? 'nl' : 'en' },
       });
 
       if (error) throw error;
 
       // Convert description to speech
       const utterance = new SpeechSynthesisUtterance(data.description);
-      utterance.lang = language;
+      utterance.lang = translate ? 'nl' : 'en';
       window.speechSynthesis.speak(utterance);
 
       // Save to history
@@ -68,7 +68,7 @@ const ImageInput = ({ language, userId, onProcessed }: ImageInputProps) => {
         input_type: 'image',
         input_content: imagePreview,
         output_text: data.description,
-        language,
+        language: translate ? 'nl' : 'en',
       });
 
       toast({

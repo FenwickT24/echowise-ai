@@ -13,7 +13,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
-  const [language, setLanguage] = useState("en");
+  const [translate, setTranslate] = useState(false);
   const [refreshHistory, setRefreshHistory] = useState(0);
 
   useEffect(() => {
@@ -81,18 +81,18 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <AccessibilityControls
-              language={language}
-              onLanguageChange={setLanguage}
+              translate={translate}
+              onTranslateChange={setTranslate}
             />
 
             <TextInput
-              language={language}
+              translate={translate}
               userId={user.id}
               onProcessed={handleProcessed}
             />
 
             <ImageInput
-              language={language}
+              translate={translate}
               userId={user.id}
               onProcessed={handleProcessed}
             />

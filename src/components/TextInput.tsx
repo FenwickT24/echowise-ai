@@ -5,17 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Volume2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface TextInputProps {
-  language: string;
+  translate: boolean;
   userId: string;
   onProcessed: () => void;
 }
 
-const TextInput = ({ language, userId, onProcessed }: TextInputProps) => {
+const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { translate: translateText, isModelReady } = useTranslation();
 
   const handleProcess = async () => {
     if (!text.trim()) {
@@ -30,16 +32,25 @@ const TextInput = ({ language, userId, onProcessed }: TextInputProps) => {
     setLoading(true);
 
     try {
-      // Process text with AI
-      const { data: processData, error: processError } = await supabase.functions.invoke('process-text', {
-        body: { text, language },
-      });
+      let processedText = text;
 
-      if (processError) throw processError;
+      // Translate if enabled
+      if (translate) {
+        if (!isModelReady) {
+          toast({
+            title: "Model loading",
+            description: "Translation model is still loading, please wait...",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        processedText = await translateText(text);
+      }
 
       // Generate speech with OpenAI TTS
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: processData.processedText, voice: 'alloy' },
+        body: { text: processedText, voice: 'alloy' },
       });
 
       if (ttsError) throw ttsError;
@@ -53,8 +64,8 @@ const TextInput = ({ language, userId, onProcessed }: TextInputProps) => {
         user_id: userId,
         input_type: 'text',
         input_content: text,
-        output_text: processData.processedText,
-        language,
+        output_text: processedText,
+        language: translate ? 'nl' : 'en',
       });
 
       toast({
