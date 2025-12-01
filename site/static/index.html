@@ -2,18 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Read-helper</title>
+  <title>Reading-helper</title>
   <style>
     /* Layout */
     body {
-      font-family: "OpenDyslexic", "Verdana", "Tahoma", Arial, sans-serif;
-      background-color: #f3f3f3;
-      color: #222;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      justify-content: center;
-    }
+  font-family: "Comic Sans MS", "Comic Sans", cursive;
+  background-color: #f3f3f3;
+  color: #222;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
 
     .container {
       max-width: 720px;
@@ -21,7 +22,11 @@
       background-color: #ffffff;
       border-radius: 8px;
       padding: 20px 24px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .scalable-text {
+      font-size: 1rem;
     }
 
     h1 {
@@ -90,7 +95,7 @@
       color: #ffffff;
     }
 
-    #reset-btn {
+    .reset-btn {
       background-color: #e0e0e0;
       color: #222;
     }
@@ -108,27 +113,24 @@
       margin-bottom: 0.5rem;
     }
 
+    /* Hide debug result box */
     #result {
-      white-space: pre-wrap;
-      border: 1px solid #ccc;
-      padding: 0.75rem;
-      border-radius: 4px;
-      background-color: #f9f9f9;
-      font-family: "OpenDyslexic", "Verdana", "Tahoma", Arial, sans-serif;
-      font-size: 0.95rem;
-      line-height: 1.7;
-      max-height: 260px;
-      overflow-y: auto;
+      display: none;
     }
 
     audio {
       width: 100%;
       margin-top: 0.5rem;
     }
+
+    small {
+      font-size: 0.85rem;
+      color: #555;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container scalable-text">
     <h1>Read-helper</h1>
     <p class="helper-text">
       Paste text or choose an image. You can choose to hear the original text or a Dutch translation.
@@ -136,13 +138,29 @@
 
     <form id="ai-form">
       <div class="row">
-        <label for="text-input">Text (optional)</label>
+        <label for="font-size-slider">Text size</label>
+        <input
+          type="range"
+          id="font-size-slider"
+          min="80"
+          max="200"
+          value="100"
+        />
+        <small>Move the slider to make the text smaller or larger.</small>
+      </div>
+
+      <div class="row">
+        <label for="text-input">Text </label>
         <textarea id="text-input" placeholder="Type or paste text here..."></textarea>
       </div>
 
       <div class="row">
-        <label for="image-input">Image (optional)</label>
-        <input id="image-input" type="file" accept="image/*" />
+        <label for="image-input">Image </label>
+        <input
+          id="image-input"
+          type="file"
+          accept="image/*"
+        />
         <small style="display:block; margin-top:0.25rem; font-size:0.9rem;">
           Use clear images with readable text for best results.
         </small>
@@ -157,18 +175,21 @@
 
       <div class="row">
         <button type="submit">Read</button>
-        <button type="button" id="reset-btn">Reset</button>
+        <button type="button" id="reset-btn" class="reset-btn">Reset</button>
       </div>
     </form>
 
-    <div style="display:none;">
-  <h2>Result</h2>
-  <pre id="result"></pre>
-  </div>
+    <!-- Hidden debug result -->
+    <pre id="result"></pre>
 
     <h2>Audio</h2>
     <audio id="audio-player" controls style="display: none;"></audio>
-  </div>
+
+    <div style="display: none;">
+  <h2>Image caption audio</h2>
+  <audio id="caption-audio-player" controls></audio>
+</div>
+
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -176,59 +197,73 @@
       const result = document.getElementById("result");
       const resetBtn = document.getElementById("reset-btn");
       const audioPlayer = document.getElementById("audio-player");
+      const captionAudioPlayer = document.getElementById("caption-audio-player");
+
+      const fontSizeSlider = document.getElementById("font-size-slider");
+      const scalableContainer = document.querySelector(".scalable-text");
+
+      if (fontSizeSlider && scalableContainer) {
+        fontSizeSlider.addEventListener("input", () => {
+          const percent = fontSizeSlider.value;
+          const scale = percent / 100;
+          scalableContainer.style.fontSize = scale + "rem";
+        });
+      }
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        let text = document.getElementById("text-input").value;
+        const textValue = document.getElementById("text-input").value;
         const imageFile = document.getElementById("image-input").files[0];
         const translateNl = document.getElementById("translate-nl").checked;
 
         try {
-          // Optional client-side translation for textbox text (for display)
-          if (translateNl && text) {
-            const tRes = await fetch("http://localhost:8000/translate-nl", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text }),
-            });
-
-            if (!tRes.ok) {
-              throw new Error("Translation request failed: " + tRes.status);
-            }
-
-            const tData = await tRes.json();
-            text = tData.translated_text;
-          }
-
-          // Send text + optional image + want_dutch flag to /analyze
           const formData = new FormData();
-          formData.append("text", text);
+          formData.append("text", textValue || "");
           formData.append("want_dutch", String(translateNl));
-          if (imageFile) formData.append("image", imageFile);
+          if (imageFile) {
+            formData.append("image", imageFile);
+          }
 
           const response = await fetch("http://localhost:8000/analyze", {
             method: "POST",
             body: formData,
           });
-
           if (!response.ok) {
-            throw new Error("Analyze request failed: " + response.status);
+            throw new Error(`Analyze request failed: ${response.status}`);
           }
 
           const data = await response.json();
+
+          // Keep JSON hidden but store for debugging if needed
           result.textContent = JSON.stringify(data, null, 2);
 
+          // Main audio
           if (data.audio_url) {
             audioPlayer.src = data.audio_url;
             audioPlayer.style.display = "block";
-            await audioPlayer.play();
+            try {
+              await audioPlayer.play();
+            } catch (playErr) {
+              console.warn("Autoplay failed:", playErr);
+            }
           } else {
-            console.warn("No audio_url in response");
+            audioPlayer.removeAttribute("src");
+            audioPlayer.style.display = "none";
           }
+
+          // Caption audio
+          if (data.caption_audio_url) {
+            captionAudioPlayer.src = data.caption_audio_url;
+            captionAudioPlayer.style.display = "block";
+          } else {
+            captionAudioPlayer.removeAttribute("src");
+            captionAudioPlayer.style.display = "none";
+          }
+
         } catch (err) {
           console.error(err);
-          result.textContent = "Error: " + err.message;
+          result.textContent = `Error: ${err.message}`;
         }
       });
 
@@ -236,22 +271,17 @@
         document.getElementById("text-input").value = "";
         document.getElementById("image-input").value = "";
         document.getElementById("translate-nl").checked = false;
-
         result.textContent = "";
 
-        if (!audioPlayer.paused) {
-          audioPlayer.pause();
-        }
+        if (!audioPlayer.paused) audioPlayer.pause();
         audioPlayer.removeAttribute("src");
         audioPlayer.style.display = "none";
+
+        if (!captionAudioPlayer.paused) captionAudioPlayer.pause();
+        captionAudioPlayer.removeAttribute("src");
+        captionAudioPlayer.style.display = "none";
       });
     });
   </script>
 </body>
 </html>
-
-
-
-
-
-
