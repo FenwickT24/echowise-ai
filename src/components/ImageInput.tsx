@@ -173,6 +173,7 @@ const ImageInput = ({ translate, userId, onProcessed }: ImageInputProps) => {
             disabled={loading || !imagePreview}
             className="text-lg h-12"
             size="lg"
+            variant="prominent"
           >
             {loading ? (
               <>

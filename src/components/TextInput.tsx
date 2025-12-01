@@ -112,6 +112,7 @@ const TextInput = ({ translate, userId, onProcessed }: TextInputProps) => {
           disabled={loading || !text.trim()}
           className="w-full text-lg h-12"
           size="lg"
+          variant="prominent"
         >
           {loading ? (
             <>
