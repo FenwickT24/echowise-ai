@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Read-helper</title>
+  <style>
+    /* Layout */
+    body {
+      font-family: "OpenDyslexic", "Verdana", "Tahoma", Arial, sans-serif;
+      background-color: #f3f3f3;
+      color: #222;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 720px;
+      width: 100%;
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+    }
+
+    p.helper-text {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+    }
+
+    .row {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    textarea,
+    input[type="file"] {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #bbb;
+      background-color: #fafafa;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 0.4rem;
+      transform: scale(1.25);
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      font-size: 0.98rem;
+      line-height: 1.6;
+    }
+
+    button {
+      font-size: 1rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      margin-right: 0.6rem;
+    }
+
+    button[type="submit"] {
+      background-color: #005bbb;
+      color: #ffffff;
+    }
+
+    #reset-btn {
+      background-color: #e0e0e0;
+      color: #222;
+    }
+
+    button:focus,
+    textarea:focus,
+    input:focus {
+      outline: 3px solid #ffbf47;
+      outline-offset: 1px;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    #result {
+      white-space: pre-wrap;
+      border: 1px solid #ccc;
+      padding: 0.75rem;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      font-family: "OpenDyslexic", "Verdana", "Tahoma", Arial, sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Read-helper</h1>
+    <p class="helper-text">
+      Paste text or choose an image. You can choose to hear the original text or a Dutch translation.
+    </p>
+
+    <form id="ai-form">
+      <div class="row">
+        <label for="text-input">Text (optional)</label>
+        <textarea id="text-input" placeholder="Type or paste text here..."></textarea>
+      </div>
+
+      <div class="row">
+        <label for="image-input">Image (optional)</label>
+        <input id="image-input" type="file" accept="image/*" />
+        <small style="display:block; margin-top:0.25rem; font-size:0.9rem;">
+          Use clear images with readable text for best results.
+        </small>
+      </div>
+
+      <div class="row">
+        <label class="checkbox-label">
+          <input id="translate-nl" type="checkbox" />
+          Read the Dutch translation instead of the original
+        </label>
+      </div>
+
+      <div class="row">
+        <button type="submit">Read</button>
+        <button type="button" id="reset-btn">Reset</button>
+      </div>
+    </form>
+
+    <h2>Result</h2>
+    <pre id="result"></pre>
+
+    <h2>Audio</h2>
+    <audio id="audio-player" controls style="display: none;"></audio>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("ai-form");
+      const result = document.getElementById("result");
+      const resetBtn = document.getElementById("reset-btn");
+      const audioPlayer = document.getElementById("audio-player");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        let text = document.getElementById("text-input").value;
+        const imageFile = document.getElementById("image-input").files[0];
+        const translateNl = document.getElementById("translate-nl").checked;
+
+        try {
+          // Optional client-side translation for textbox text (for display)
+          if (translateNl && text) {
+            const tRes = await fetch("http://localhost:8000/translate-nl", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+
+            if (!tRes.ok) {
+              throw new Error("Translation request failed: " + tRes.status);
+            }
+
+            const tData = await tRes.json();
+            text = tData.translated_text;
+          }
+
+          // Send text + optional image + want_dutch flag to /analyze
+          const formData = new FormData();
+          formData.append("text", text);
+          formData.append("want_dutch", String(translateNl));
+          if (imageFile) formData.append("image", imageFile);
+
+          const response = await fetch("http://localhost:8000/analyze", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Analyze request failed: " + response.status);
+          }
+
+          const data = await response.json();
+          result.textContent = JSON.stringify(data, null, 2);
+
+          if (data.audio_url) {
+            audioPlayer.src = data.audio_url;
+            audioPlayer.style.display = "block";
+            await audioPlayer.play();
+          } else {
+            console.warn("No audio_url in response");
+          }
+        } catch (err) {
+          console.error(err);
+          result.textContent = "Error: " + err.message;
+        }
+      });
+
+      resetBtn.addEventListener("click", () => {
+        document.getElementById("text-input").value = "";
+        document.getElementById("image-input").value = "";
+        document.getElementById("translate-nl").checked = false;
+
+        result.textContent = "";
+
+        if (!audioPlayer.paused) {
+          audioPlayer.pause();
+        }
+        audioPlayer.removeAttribute("src");
+        audioPlayer.style.display = "none";
+      });
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
