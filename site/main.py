@@ -9,8 +9,8 @@ import uuid
 import shutil
 import os
 
-from tts_model import tts                  
-from vision_model import extract_text_from_image  
+from tts_model import tts
+from vision_model import extract_text_from_image, extract_text_and_caption  # uses caption too
 
 app = FastAPI()
 
@@ -73,34 +73,39 @@ class AnalyzeResponse(BaseModel):
     vision_full_text: str | None
     translated_text: str | None
     audio_url: str
+    caption_text: str | None = None
+    caption_audio_url: str | None = None
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
     text: str = Form(""),
-    want_dutch: str = Form("False"),     # "True" if checkbox is checked
+    want_dutch: str = Form("False"),  # "True" if checkbox is checked
     image: UploadFile | None = File(None),
 ):
-   
-    vision_full_text = None
-    base_text = text or ""
+    vision_full_text: str | None = None
+    caption_text: str | None = None
+    caption_audio_url: str | None = None
 
+    base_text = text or ""
     temp_image_path = None
 
-    # 1) If image is provided, try OCR and overwrite base_text if OCR succeeds
+    # 1) If image is provided, try OCR + caption and overwrite base_text if OCR succeeds
     if image is not None:
         try:
             ext = pathlib.Path(image.filename).suffix
             temp_name = f"upload_{uuid.uuid4().hex}{ext}"
             temp_image_path = UPLOAD_DIR / temp_name
+
             with temp_image_path.open("wb") as buffer:
                 shutil.copyfileobj(image.file, buffer)
 
             try:
-                vision_text = extract_text_from_image(str(temp_image_path))
+                # OCR + caption from the same call
+                vision_text, caption = extract_text_and_caption(str(temp_image_path))
             except Exception as e:
                 print(f"Vision error: {e}")
-                vision_text = ""
+                vision_text, caption = "", None
 
             vision_text = (vision_text or "").strip()
             vision_text = "".join(ch for ch in vision_text if ch.isprintable())
@@ -108,6 +113,12 @@ async def analyze(
 
             if vision_full_text:
                 base_text = vision_full_text
+
+            if caption:
+                caption = caption.strip()
+                caption = "".join(ch for ch in caption if ch.isprintable())
+                caption_text = caption or None
+
         finally:
             if temp_image_path and temp_image_path.exists():
                 try:
@@ -120,7 +131,6 @@ async def analyze(
     base_text = "".join(ch for ch in base_text if ch.isprintable())
     if not base_text:
         base_text = "No text found in input."
-
     print("BASE TEXT (final original):", repr(base_text))
 
     want_dutch_bool = want_dutch.lower() == "true"
@@ -138,7 +148,7 @@ async def analyze(
 
     print("TRANSLATED TEXT (if any):", repr(translated_text))
 
-    # 4) Choose what to send to TTS:
+    # 4) Choose what to send to TTS for the main audio:
     # - If checkbox OFF: speak base_text (original).
     # - If checkbox ON: speak translated_text if available, else base_text.
     if want_dutch_bool and translated_text:
@@ -154,7 +164,6 @@ async def analyze(
             safe_tts_text = "No valid text was found."
 
         print("TTS INPUT:", repr(safe_tts_text))
-
         unique_id = uuid.uuid4().hex
         output_path = AUDIO_DIR / f"tts_{unique_id}.mp3"
         file_path = tts(safe_tts_text, output_file=str(output_path))
@@ -163,14 +172,31 @@ async def analyze(
     except Exception as e:
         print("TTS error:", e)
 
+    # 5) Optional: TTS for caption, separate MP3
+    if caption_text:
+        try:
+            safe_cap_text = caption_text.strip()
+            safe_cap_text = "".join(ch for ch in safe_cap_text if ch.isprintable())
+            if safe_cap_text:
+                print("CAPTION TTS INPUT:", repr(safe_cap_text))
+                cap_id = uuid.uuid4().hex
+                cap_output_path = AUDIO_DIR / f"caption_{cap_id}.mp3"
+                cap_file_path = tts(safe_cap_text, output_file=str(cap_output_path))
+                cap_rel_name = pathlib.Path(cap_file_path).name
+                caption_audio_url = f"http://localhost:8000/audio/{cap_rel_name}"
+        except Exception as e:
+            print("Caption TTS error:", e)
+            caption_audio_url = None
+
     return AnalyzeResponse(
         received_text=base_text,
         image_filename=image.filename if image else None,
         vision_full_text=vision_full_text,
         translated_text=translated_text,
         audio_url=audio_url,
+        caption_text=caption_text,
+        caption_audio_url=caption_audio_url,
     )
-
 
 
 class TTSRequest(BaseModel):
@@ -200,4 +226,3 @@ async def tts_endpoint(req: TTSRequest):
         print("Direct TTS error:", e)
 
     return TTSResponse(audio_url=audio_url)
-
